@@ -1,0 +1,24 @@
+name: SageMath tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sage:
+    runs-on: ubuntu-latest
+    container:
+      image: sagemath/sagemath:10.8
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: sage -pip install --no-deps --no-build-isolation .
+      - name: Regression tests and doctests
+        run: sage -python tools/check.py
+      - name: Verify wheel installation
+        run: sage -python tools/check_install.py

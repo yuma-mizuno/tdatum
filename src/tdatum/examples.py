@@ -1,3 +1,9 @@
+"""Construct explicit matrix pairs; call ``t_datum()`` to validate a pair.
+
+The constructors are adapted from Yuma Mizuno's local SageMath library.
+They construct examples; they do not test finite type or periodicity.
+"""
+
 from sage.rings.polynomial.laurent_polynomial_ring import LaurentPolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational_field import QQ
@@ -44,12 +50,22 @@ class TDatumConstructor(object):
         Ap = N0-matrix(self.size() , lambda u,v: self._N_plus_entry(self.indices()[u],self.indices()[v]))
         Am = N0-matrix(self.size() , lambda u,v: self._N_minus_entry(self.indices()[u],self.indices()[v]))
         return (Ap,Am)
+
+    def t_datum(self, D='identity'):
+        """Return a validated T-datum, with an explicitly supplied D if needed."""
+        from .t_datum import TDatum
+        return TDatum(*self.pair(), D=D)
     
         
 class RSG(TDatumConstructor):
+    """Reduced sine-Gordon matrix pairs for an integer continued-fraction list."""
+
     def __init__(self,n_list,variable_name='z'):
         super(RSG,self).__init__(variable_name)
-        self._n_list = n_list
+        self._n_list = tuple(n_list)
+        if (not self._n_list or any(n not in ZZ or n < 1 for n in self._n_list)
+                or self._n_list[0] < 2 or sum(self._n_list) <= 2):
+            raise ValueError("Use a nonempty positive integer list with n1 >= 2 and sum(n_list) > 2.")
         
     def n(self,a):
         return self._n_list[a-1]
@@ -478,8 +494,12 @@ class LengthOne(TDatumConstructor):
         return sum((-c)*z**(degree+1) for degree,c in enumerate(self._degree_list) if c<0)
     
 class Rank2(TDatumConstructor):
+    """Six stored rank-two examples, selected by labels 1 through 6."""
+
     def __init__(self, label, variable_name='z'):
         super(Rank2, self).__init__(variable_name)
+        if label not in ZZ or not 1 <= label <= 6:
+            raise ValueError("Rank2 labels are the integers 1,...,6.")
         self._label = label
         
     def indices(self):

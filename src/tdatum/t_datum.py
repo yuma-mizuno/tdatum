@@ -18,7 +18,7 @@ AUTHORS:
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# u should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # ****************************************************************************
 
@@ -51,9 +51,9 @@ class TDatum(SageObject):
 
     A T-datum of size $r$ is a triple $(A_+,A_-,D)$ where
     $A_+$ and $A_-$ are matrices in $\mathrm{Mat}_{r \times r}(\ZZ[z^{\pm}])$ and
-    $D$ is a positive integer matrix.
+    $D$ is a positive integer diagonal matrix.
     These matrices satisfy 
-    $N_0 D= D N_0$, $D^{-1}N_{\pm}D \in $\mathrm{Mat}_{r \times r}(\ZZ[z^{\pm}])$,
+    $N_0 D= D N_0$, $D^{-1}N_{\pm}D \in \mathrm{Mat}_{r \times r}(\ZZ[z^{\pm}])$,
     and $A_+ D A_-^{\dagger} = A_- D A_+^{\dagger}$,
     where $A_{\pm}^{\dagger} := (A_{\pm}|_{z=z^{-1}})^{\mathsf{T}}$.
     The condition $A_+ D A_-^{\dagger} = A_- D A_+^{\dagger}$ is called the symplectic relation.
@@ -79,6 +79,14 @@ class TDatum(SageObject):
     - ``A_minus`` -- square matrix whose entries are univariate Laurent polynomial
 
     - ``D`` -- positive integer diagonal matrix
+
+    - ``check`` -- boolean (default: ``True``); check the compatibility of
+      ``D`` with ``N0`` and ``N_plus``, ``N_minus``, and the symplectic relation.
+      Input types, integrality, positivity of ``D``, and (N1)--(N4) are always
+      checked. Use ``check=False`` only when the remaining identities are known.
+
+    Matrix indices and mutation vertices in the Python API start at zero.
+    Sage permutations use their usual one-based notation.
     
     OUTPUT:
     
@@ -88,6 +96,7 @@ class TDatum(SageObject):
     
     An example of T-datum when ``D`` is the identity matrix::
 
+        sage: from tdatum import TDatum, MutationLoop
         sage: z = LaurentPolynomialRing(QQ,'z').gen()
         sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
         sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -108,7 +117,7 @@ class TDatum(SageObject):
         sage: z = LaurentPolynomialRing(QQ,'z').gen()
         sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
         sage: A_minus = matrix(2,2,[1+z^2,-z,-2*z,1+z^2])
-        sage: td = TDatum(A_plus,A_minus)
+        sage: td = TDatum(A_plus,A_minus,diagonal_matrix([1,2]))
         sage: N0,Np,Nm = td.triple()
         sage: N0
         [1 + z^2       0]
@@ -122,40 +131,77 @@ class TDatum(SageObject):
     """
     
     def __init__(self, A_plus, A_minus, D='identity', check=True):
-        if check:
-            if not isinstance(A_plus,Matrix):
-                raise ValueError("The input should be a pair of matrices.")
-            if not isinstance(A_minus,Matrix):
-                raise ValueError("The input should be a pair of matrices.")
-            from sage.rings.polynomial.laurent_polynomial_ring import LaurentPolynomialRing_univariate
-            if not isinstance(A_plus.base_ring(),LaurentPolynomialRing_univariate):
-                raise ValueError("The base ring of A_plus and A_minus should be a univariate laurent polynomial ring.")
-            if not isinstance(A_minus.base_ring(),LaurentPolynomialRing_univariate):
-                raise ValueError("The base ring of A_plus and A_minus should be a univariate laurent polynomial ring.")
-        
+        from sage.rings.polynomial.laurent_polynomial_ring import LaurentPolynomialRing_univariate
+        if not isinstance(A_plus, Matrix) or not isinstance(A_minus, Matrix):
+            raise ValueError("A_plus and A_minus must be matrices.")
+        if not all(isinstance(a.base_ring(), LaurentPolynomialRing_univariate)
+                   for a in (A_plus, A_minus)):
+            raise ValueError("Use matrices over a univariate Laurent polynomial ring.")
+        if A_plus.base_ring().variable_name() != A_minus.base_ring().variable_name():
+            raise ValueError("A_plus and A_minus must use the same variable.")
         self._size = A_plus.ncols()
-        if self._size != A_plus.nrows() or self._size != A_minus.ncols() or self._size != A_minus.nrows():
-             raise ValueError("The inputs should be square matrices.")
-        
-        lp = A_plus.base_ring()
-        self._A_plus = MatrixSpace(lp,A_plus.nrows(),A_plus.ncols())(A_plus)
-        self._A_minus = MatrixSpace(lp,A_minus.nrows(),A_minus.ncols())(A_minus)
-        self._triple = None
-        if D=='identity':
-            self._D = MatrixSpace(ZZ,self._size)(identity_matrix(self._size))
-        else:
-            self._D = MatrixSpace(ZZ,self._size)(D)
+        if self._size == 0 or any(a.nrows() != self._size or a.ncols() != self._size
+                                  for a in (A_plus, A_minus)):
+            raise ValueError("A_plus and A_minus must be nonempty square matrices of the same size.")
+        if any(c not in ZZ for a in (A_plus, A_minus) for f in a.list() for c in f.coefficients()):
+            raise ValueError("A_plus and A_minus must have integer coefficients.")
         self._var_name = A_plus.base_ring().variable_name()
-        
-        N0 = self.triple()[0]
+        lp = LaurentPolynomialRing(QQ, self._var_name)
+        self._A_plus = matrix(lp, A_plus)
+        self._A_minus = matrix(lp, A_minus)
+        if isinstance(D, str):
+            if D != 'identity':
+                raise ValueError("D must be a positive integer diagonal matrix or 'identity'.")
+            self._D = identity_matrix(ZZ, self._size)
+        else:
+            try:
+                self._D = MatrixSpace(ZZ, self._size)(D)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("D must be a positive integer diagonal matrix.") from exc
+        if any(self._D[a,b] != 0 for a in range(self._size) for b in range(self._size) if a != b):
+            raise ValueError("D must be diagonal.")
+        if any(d <= 0 for d in self._D.diagonal()):
+            raise ValueError("D must have positive diagonal entries.")
+
         z = self.variable()
+        def positive_part(a):
+            return matrix(lp, self._size, self._size,
+                          [sum(max(0,c)*z**e for e,c in zip(f.exponents(),f.coefficients()))
+                           for f in a.list()])
+        N0 = positive_part(self._A_plus)
+        Np = positive_part(-self._A_plus)
+        Nm = positive_part(-self._A_minus)
+        if self._A_minus != N0 - Nm:
+            raise ValueError("A_plus and A_minus must have the same coefficientwise positive part N0.")
+        self._triple = (N0, Np, Nm)
+        leading = N0 - identity_matrix(lp, self._size)
+        degrees, columns = [], []
+        for a in range(self._size):
+            occupied = [b for b in range(self._size) if leading[a,b] != 0]
+            if len(occupied) != 1:
+                raise ValueError("The inputs do not satisfy (N1).")
+            b = occupied[0]
+            f = leading[a,b]
+            if len(f.exponents()) != 1 or f.coefficients() != [1] or f.exponents()[0] <= 0:
+                raise ValueError("(N1) requires positive degrees and leading coefficient one.")
+            degrees.append(f.exponents()[0])
+            columns.append(b)
+        if len(set(columns)) != self._size:
+            raise ValueError("The leading monomials in (N1) must define a permutation.")
+        self._degrees = tuple(degrees)
+        for a in range(self._size):
+            for b in range(self._size):
+                if any(not 0 < e < degrees[a] for n in (Np, Nm) for e in n[a,b].exponents()):
+                    raise ValueError("The inputs do not satisfy (N3).")
+                if set(Np[a,b].exponents()).intersection(Nm[a,b].exponents()):
+                    raise ValueError("The inputs do not satisfy (N4).")
         P=diagonal_matrix([z**(-d) for d in self.degrees()])*(N0-identity_matrix(N0.ncols()))
         sigma = (P.is_permutation_of(identity_matrix(N0.ncols()),check = True))[1]
         self._permutation = Permutations(N0.ncols())(prod(sigma))
-        
         if check:
-            if not self._is_t_datum():
-                raise ValueError("The inputs is not a T-datum.")
+            self._is_t_datum()
+        for a in (self._A_plus, self._A_minus, self._D, N0, Np, Nm):
+            a.set_immutable()
     
     def symmetrizer(self):
         """
@@ -163,6 +209,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: Ap = matrix(2, 2, [1+z^2,-z,-2*z,1+z^2])
             sage: Am = matrix(2, 2, [1+z^2,0,0,1+z^2])
@@ -175,41 +222,19 @@ class TDatum(SageObject):
     
     def _is_t_datum(self):
         """
-        Return ``True`` if the input is a T-datum and ``False`` otherwise.
+        Check compatibility identities; raise ``ValueError`` on failure.
+
+        The constructor checks the input types and (N1)--(N4).
         """
         z = self.variable()
         Ap,Am = self.pair()
         N0,Np,Nm = self.triple()
-        #condition (C-2)
-        if not all([all(flatten([[coeff>0 for coeff in f.coefficients()] for f in X.list() if f!=0])) for X in self.triple()]):
-            raise ValueError('The inputs do not satisfy (N2).')
-        #condition (C-4)
-        for a in range(Nm.nrows()):
-            for b in range(Nm.ncols()):
-                fp=Np[a][b]
-                fm=Nm[a][b]
-                for coeff_p,exponent_p in zip(fp.coefficients(),fp.exponents()):
-                    for coeff_m,exponent_m in zip(fm.coefficients(),fm.exponents()):
-                        if exponent_p==exponent_m:
-                            if coeff_p*coeff_m != 0:
-                                raise ValueError('The inputs do not satisfy (N4).')
-        #condition (C-3)
-        l=self.degrees()
-        for a in range(Nm.nrows()):
-            for b in range(Nm.ncols()):
-                fp=Np[a][b]
-                fm=Nm[a][b]
-                if not all([0<exp and exp<l[a] for exp in fp.exponents()]):
-                    raise ValueError('The inputs do not satisfy (N3).')
-                if not all([0<exp and exp<l[a] for exp in fm.exponents()]):
-                    raise ValueError('The inputs do not satisfy (N3).')
-        #condition (C-1)
-        P=diagonal_matrix([z**(-d) for d in self.degrees()])*(N0-identity_matrix(N0.ncols()))
-        if not P.is_permutation_of(identity_matrix(N0.ncols())):
-            raise ValueError('The inputs do not satisfy (N1).')
-
-        #symplectic relation
-        D=diagonal_matrix(self.symmetrizer())
+        D=self._D
+        if N0*D != D*N0:
+            raise ValueError("N0 must commute with D.")
+        for n in (Np, Nm):
+            if any(c not in ZZ for f in (D.inverse()*n*D).list() for c in f.coefficients()):
+                raise ValueError("D^(-1) N_plus D and D^(-1) N_minus D must have integer coefficients.")
         if Ap*D*(Am.transpose().subs({z:1/z})) != Am*D*(Ap.transpose().subs({z:1/z})):
             raise ValueError('The inputs do not satisfy the symplectic relation.')
         
@@ -221,6 +246,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -236,6 +262,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -252,6 +279,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
         
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[[1-2*z^2,-2*z+z^3],[z^3,1]])
             sage: A_minus = matrix(2,2,[[1,z^3],[-2*z+z^3,1-2*z^2]])
@@ -267,6 +295,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -285,6 +314,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -295,24 +325,6 @@ class TDatum(SageObject):
             [      0 1 + z^2], [0 0], [z 0]
             )
         """
-        if self._triple:
-            return self._triple
-
-        def polynomial_positive_part(polynomial):
-            if polynomial in ZZ:
-                return max(0,polynomial)
-            else:
-                x=polynomial.variables()[0]
-                f=polynomial
-                return sum(max(0,c)*x**e for e,c in zip(f.exponents(),f.coefficients()))
-
-        def matrix_positive_part(mat):
-            nr=mat.nrows()
-            nc=mat.ncols()
-            return matrix(nr,nc,lambda a,b:polynomial_positive_part(mat[a][b]))
-        
-        Ap, Am = self.pair()
-        self._triple = (matrix_positive_part(Ap), matrix_positive_part(-Ap), matrix_positive_part(-Am))
         return self._triple
     
     def is_indecomposable(self):
@@ -321,6 +333,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -372,6 +385,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,-z,-z-z^5,1+z^6])
             sage: A_minus = matrix(2,2,[1+z^2,0,-z^3,1+z^6])
@@ -379,9 +393,7 @@ class TDatum(SageObject):
             sage: td.degrees()
             (2, 6)
         """
-        N0=self.triple()[0]
-        ncol=N0.ncols()
-        return tuple((sum(N0[k][i] for i in range(ncol))-1).exponents()[0] for k in range(ncol))
+        return self._degrees
     
     def langlands_dual(self):
         r"""
@@ -389,6 +401,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-2*z,1+z^2])
@@ -419,6 +432,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -435,7 +449,7 @@ class TDatum(SageObject):
             )
         """
         Ap, Am = self.pair()
-        return TDatum(Am, Ap)
+        return TDatum(Am, Ap, self._D)
 
     def _phi(self,u,r):
         r"""
@@ -455,7 +469,7 @@ class TDatum(SageObject):
     
     def _phi_inv(self,u,r):
         r"""
-        The inverse function of ``self._phi()``. See :func:`_phi<sage.combinat.t_datum.TDatum._phi>`.
+        The inverse function of ``self._phi()``. See :func:`_phi<tdatum.t_datum.TDatum._phi>`.
         """
         a,up = r
         p = up - u
@@ -470,7 +484,7 @@ class TDatum(SageObject):
     def _phi_inv_vec(self,u,r):
         r"""
         The inverse function of the composition $\varphi_{t-1} \circ \dots \circ \varphi_{0}$.
-        See :func:`_phi<sage.combinat.t_datum.TDatum._phi>`.
+        See :func:`_phi<tdatum.t_datum.TDatum._phi>`.
         """
         a,up = r
         if u==0:
@@ -480,7 +494,7 @@ class TDatum(SageObject):
         else:
             return self._phi_inv_vec(u-1 ,self._phi(u),r)
 
-    def _psi(sekf,r,t=1):
+    def _psi(self,r,t=1):
         r"""
         Return the tuple $(a,u+t)$ where $r = (a,u)$.
         """
@@ -506,6 +520,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,-z,-z-z^5,1+z^6])
             sage: A_minus = matrix(2,2,[1+z^2,0,-z^3,1+z^6])
@@ -524,6 +539,7 @@ class TDatum(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -551,12 +567,13 @@ class TDatum(SageObject):
             -``R`` -- tuple (default: ``None``); the tuple consisting of the indices of 
             the initial (valued) quiver in the mutation loop.
             If  ``R`` = ``None``, the tuple ``R`` is given by
-            :func:`self.maximal_initial_indices()<sage.combinat.t_datum.TDatum.maximal_initial_indices()>`.
+            :func:`self.maximal_initial_indices()<tdatum.t_datum.TDatum.maximal_initial_indices()>`.
 
         OUTPUT: the mutation loop
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(2,2,[1+z^2,0,0,1+z^2])
             sage: A_minus = matrix(2,2,[1+z^2,-z,-z,1+z^2])
@@ -588,7 +605,7 @@ class TDatum(SageObject):
         for u in range(t):
             i.append([I.index(self._phi_inv_vec(u,(a,u1))) for a,u1 in list( self._R(R,u)) if u1==u])
         nu=Permutation([I.index(self._phi_inv_vec(t,self._psi(r,t)))+1 for r in I])
-        return MutationLoop(B,i,nu)
+        return MutationLoop(B,i,nu,[self.symmetrizer()[a] for a,p in I])
     
     def plot_mutation_loop(self):
         r"""
@@ -596,12 +613,13 @@ class TDatum(SageObject):
 
         EXAMPLE::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: z = LaurentPolynomialRing(QQ,'z').gen()
             sage: A_plus = matrix(1,1,[1-2*z**2+z**4])
             sage: A_minus = matrix(1,1,[1-z-z**3+z**4])
             sage: td = TDatum(A_plus,A_minus)
             sage: td.plot_mutation_loop()
-            Digraph on 4 vertices
+            Graphics object consisting of 18 graphics primitives
 
         .. PLOT::
 
@@ -716,6 +734,7 @@ class MutationLoop(SageObject):
     
     EXAMPLES::
     
+        sage: from tdatum import TDatum, MutationLoop
         sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
         sage: i = [[0,2],[1]]
         sage: nu = Permutation([1,2,3])
@@ -729,22 +748,51 @@ class MutationLoop(SageObject):
     
     """
     def __init__(self, b_matrix, sequence_of_indices, permutation,symmetrizer=None):
-        self._b_matrix=b_matrix
-        self._vertices=sequence_of_indices[:]
-        self._permutation=permutation
-        size=self._b_matrix.ncols()
-        if not symmetrizer:
+        if not isinstance(b_matrix, Matrix) or b_matrix.nrows() != b_matrix.ncols() or b_matrix.ncols() == 0:
+            raise ValueError("B must be a nonempty square integer matrix.")
+        try:
+            self._b_matrix = matrix(ZZ, b_matrix)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("B must have integer entries.") from exc
+        size = self._b_matrix.ncols()
+        self._vertices = [list(block) for block in sequence_of_indices]
+        if not self._vertices:
+            raise ValueError("The mutation sequence must contain at least one time step.")
+        for block in self._vertices:
+            if any(v not in ZZ or not 0 <= v < size for v in block) or len(set(block)) != len(block):
+                raise ValueError("Each time step must contain distinct vertices in range(size).")
+        self._permutation = Permutation(permutation)
+        if len(self._permutation) != size:
+            raise ValueError("The permutation must act on 1,...,size.")
+        if symmetrizer is None:
             self._symmetrizer = tuple([1]*size)
         else:
             self._symmetrizer = tuple(symmetrizer)
-        cq=ClusterQuiver(self._b_matrix)
-        cq.mutate(flatten(self._vertices))
+        if len(self._symmetrizer) != size or any(d not in ZZ or d <= 0 for d in self._symmetrizer):
+            raise ValueError("The right symmetrizer must contain size positive integers.")
+        bd = self._b_matrix * diagonal_matrix(self._symmetrizer)
+        if bd != -bd.transpose():
+            raise ValueError("B times the right symmetrizer must be skew-symmetric.")
+        permutation = self._permutation
+        if any(self._symmetrizer[permutation(i+1)-1] != self._symmetrizer[i] for i in range(size)):
+            raise ValueError("The permutation must preserve the symmetrizer.")
+        cq = ClusterQuiver(self._b_matrix)
+        for block in self._vertices:
+            current = cq.b_matrix()
+            if any(current[i,j] != 0 for i in block for j in block):
+                raise ValueError("Vertices mutated at the same time must commute.")
+            if block:
+                cq.mutate(block)
         if cq.b_matrix() != matrix(size,lambda i,j:self._b_matrix[permutation.inverse()(i+1)-1][permutation.inverse()(j+1)-1]):
             raise ValueError('The first quiver and the last quiver are distinct.')
+        self._b_matrix.set_immutable()
 
     def __eq__(self, other):
+        if not isinstance(other, MutationLoop):
+            return NotImplemented
         b1, b2 = self._b_matrix, other._b_matrix
-        i1, i2 = tuple(flatten(self._vertices)), tuple(flatten(self._vertices))
+        i1 = tuple(tuple(sorted(block)) for block in self._vertices)
+        i2 = tuple(tuple(sorted(block)) for block in other._vertices)
         nu1, nu2 = self._permutation, other._permutation
         d1, d2 = self._symmetrizer, other._symmetrizer
         return b1 == b2 and i1 == i2 and nu1 == nu2 and d1 == d2
@@ -755,6 +803,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -794,6 +843,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -812,6 +862,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -837,6 +888,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -845,7 +897,7 @@ class MutationLoop(SageObject):
             [[0, 2], [1]]
 
         """
-        return self._vertices[:]
+        return [block[:] for block in self._vertices]
 
     def size(self):
         r"""
@@ -853,6 +905,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -868,6 +921,7 @@ class MutationLoop(SageObject):
         Return the integer $t$ where $\mathbf{i} = (\mathbf{i}(0),\dots,\mathbf{i}(t-1))$.
 
         EXAMPLES::
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -884,6 +938,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -900,13 +955,14 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,2,-2,-2,0,2,2,-2,0])
             sage: MutationLoop(b,[[1],[0]],Permutation([2,3,1])).inverse() == MutationLoop(b,[[1],[2]],Permutation([3,1,2]))
             True
 
         """
         i_inv = [[self.permutation()(v+1)-1 for v in vs] for vs in self._vertices[::-1]]
-        return MutationLoop(self.b_matrix(0),i_inv,self.permutation().inverse())
+        return MutationLoop(self.b_matrix(0),i_inv,self.permutation().inverse(),self.symmetrizer())
 
     def permutation(self):
         r"""
@@ -914,6 +970,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -934,6 +991,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -942,7 +1000,7 @@ class MutationLoop(SageObject):
             [0, 2]
 
         """
-        return self._vertices[u]
+        return self._vertices[u][:]
     
     @cached_method
     def _order_of_permutation(self):
@@ -951,6 +1009,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu1 = Permutation([1,2,3])
@@ -978,6 +1037,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1002,6 +1062,7 @@ class MutationLoop(SageObject):
         Return the ``exponent``-th power of ``permutation``.
 
         EXAMPLES::
+            sage: from tdatum import TDatum, MutationLoop
             sage: MutationLoop._permutation_power(Permutation([2,3,1]),3)
             [1, 2, 3]
 
@@ -1017,6 +1078,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1040,6 +1102,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1063,6 +1126,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
         
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1084,6 +1148,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
         
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1104,6 +1169,7 @@ class MutationLoop(SageObject):
         Return ``True`` if all latencies are finite.
 
         EXAMPLES::
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1125,6 +1191,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([3,2,1])
@@ -1147,6 +1214,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1175,6 +1243,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1196,6 +1265,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1224,6 +1294,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-1,0])
             sage: i = [[0,2],[1]]
             sage: nu = Permutation([1,2,3])
@@ -1248,7 +1319,9 @@ class MutationLoop(SageObject):
             )
 
         """
-        NT0,NTp,NTm = self._T_system_triple()
+        if not self.is_complete():
+            raise ValueError("A complete mutation loop is required to construct a T-datum.")
+        NT0,NTp,NTm = self._T_system_triple(variable_name)
         Ap=NT0-NTp
         Am=NT0-NTm
         D=diagonal_matrix(self.symmetrizer()[i] for i in  flatten(self._vertices))
@@ -1260,6 +1333,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-2,0])
             sage: d = [1,1,2]
             sage: i = [[0,2],[1]]
@@ -1300,6 +1374,7 @@ class MutationLoop(SageObject):
 
         EXAMPLES::
 
+            sage: from tdatum import TDatum, MutationLoop
             sage: b = matrix(3,3,[0,-1,0,1,0,1,0,-2,0])
             sage: d = [1,1,2]
             sage: i = [[0,2],[1]]

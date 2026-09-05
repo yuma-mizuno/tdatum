@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "Please cite this software and the mathematical reference listed below."
+type: software
+title: "TDatum: T-data and mutation loops for SageMath"
+version: 0.1.0.dev0
+authors:
+  - family-names: Mizuno
+    given-names: Yuma
+license: GPL-3.0-or-later
+keywords:
+  - SageMath
+  - T-data
+  - cluster algebras
+references:
+  - type: article
+    title: "Difference equations arising from cluster algebras"
+    authors:
+      - family-names: Mizuno
+        given-names: Yuma
+    year: 2019
+    doi: 10.48550/arXiv.1912.05710
+    url: "https://arxiv.org/abs/1912.05710"
