@@ -9,9 +9,7 @@ The distribution name is `sagemath-tdatum`, the Python import name is
 
 The GitHub repository contains the SageMath library, three executed
 introductory notebooks, API documentation, tests, build tools, a license,
-and citation metadata. English is the primary language for documentation
-and examples. GitHub is the distribution and collaboration platform for
-this preparation stage.
+and citation metadata.
 
 The introductory sequence is installation, a minimal T-datum, a nonidentity
 symmetrizer, RSG examples, and construction of a T-datum from a mutation loop.

@@ -13,8 +13,7 @@ The mathematical reference is Yuma Mizuno,
 
 This is development version `0.1.0.dev0`, tested with SageMath 10.8.
 The [GitHub repository](https://github.com/yuma-mizuno/tdatum) is currently
-private while release preparation is in progress. Documentation and examples
-are maintained in English.
+private while release preparation is in progress.
 
 ## Install
 
