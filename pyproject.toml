@@ -19,6 +19,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
+[project.urls]
+Repository = "https://github.com/yuma-mizuno/tdatum"
+Issues = "https://github.com/yuma-mizuno/tdatum/issues"
+Documentation = "https://github.com/yuma-mizuno/tdatum/blob/main/README.md"
+
 # SageMath is a prerequisite supplied by the user's Sage environment.
 # Installing this distribution does not install SageMath.
 [tool.setuptools.packages.find]

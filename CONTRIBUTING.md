@@ -20,6 +20,8 @@ Changes to the mathematical core should include regression tests for the
 affected property and run the Sage doctests. Rebuild the notebooks after
 changing a documented API. Use UTF-8 for text files.
 
-The maintainer reviews changes on a best-effort basis. A public issue tracker
-will be linked here when the repository is published. Contributions are
-distributed under the same GPL-3.0-or-later license as the project.
+Report bugs in the [issue tracker](https://github.com/yuma-mizuno/tdatum/issues)
+and propose changes through pull requests. Access currently requires permission
+to the private repository. Write documentation, examples, and issue reports in
+English. The maintainer reviews changes on a best-effort basis. Contributions
+are distributed under the same GPL-3.0-or-later license as the project.

@@ -11,6 +11,7 @@ permissions:
 jobs:
   sage:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     container:
       image: sagemath/sagemath:10.8
       options: --user root
@@ -22,3 +23,14 @@ jobs:
         run: sage -python tools/check.py
       - name: Verify wheel installation
         run: sage -python tools/check_install.py
+      - name: Execute example notebooks
+        run: sage -python tools/build_examples.py
+      - name: Save validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdatum-validation
+          path: |
+            test-results/
+            docs/_build/examples/
+          retention-days: 14

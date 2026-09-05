@@ -11,16 +11,20 @@ examples.
 The mathematical reference is Yuma Mizuno,
 [Difference equations arising from cluster algebras](https://arxiv.org/abs/1912.05710).
 
-This is the local development version `0.1.0.dev0`. It has been tested with
-SageMath 10.8. The distribution name `sagemath-tdatum` is provisional; a public
-repository and a PyPI release have not yet been created.
+This is development version `0.1.0.dev0`, tested with SageMath 10.8.
+The [GitHub repository](https://github.com/yuma-mizuno/tdatum) is currently
+private while release preparation is in progress. Documentation and examples
+are maintained in English.
 
 ## Install
 
 First install SageMath using its [installation guide](https://doc.sagemath.org/html/en/installation/).
-From the root of this source checkout:
+Clone the repository using a GitHub account with access, then install into
+your SageMath environment:
 
 ```sh
+git clone https://github.com/yuma-mizuno/tdatum.git
+cd tdatum
 sage -pip install --no-deps .
 ```
 
@@ -103,5 +107,5 @@ library itself uses SageMath and Python's standard library.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contributions and
 [CITATION.cff](CITATION.cff) for citation metadata. The code is distributed
 under GPL-3.0-or-later; see [LICENSE](LICENSE). Source history and the public
-release proposal are recorded in [docs/provenance.md](docs/provenance.md) and
-[docs/publication-ja.md](docs/publication-ja.md).
+release preparation are recorded in [docs/provenance.md](docs/provenance.md) and
+[docs/release-preparation.md](docs/release-preparation.md).

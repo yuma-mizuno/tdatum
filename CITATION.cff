@@ -3,6 +3,8 @@ message: "Please cite this software and the mathematical reference listed below.
 type: software
 title: "TDatum: T-data and mutation loops for SageMath"
 version: 0.1.0.dev0
+repository-code: "https://github.com/yuma-mizuno/tdatum"
+url: "https://github.com/yuma-mizuno/tdatum"
 authors:
   - family-names: Mizuno
     given-names: Yuma
