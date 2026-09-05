@@ -14,6 +14,19 @@ environment in WSL.
 | Mutation-loop notebook | 5 code cells executed, 0 errors |
 | Citation metadata | Validated against the official CFF 1.2.0 JSON schema |
 
+## GitHub Actions
+
+The first full [GitHub Actions run](https://github.com/yuma-mizuno/tdatum/actions/runs/33951789540)
+passed on 2026-09-05 for commit `2148ecec96abec857e3b55938f670ff7ec298c07`.
+The SageMath 10.8 container passed package installation, all 12 regression
+test methods, all 301 doctests, the isolated wheel installation, and all
+14 code cells across the three notebooks. Validation logs and notebook HTML
+exports are attached to that run as an artifact.
+
+Subsequent results are available in the
+[workflow history](https://github.com/yuma-mizuno/tdatum/actions/workflows/tests.yml).
+Repository access is required while the project is private.
+
 ## Reproduce
 
 From the repository root:
@@ -27,8 +40,8 @@ sage -python tools/build_examples.py
 The test tools write logs to `test-results/`. Notebook execution updates the
 three files in `examples/` and exports HTML to `docs/_build/examples/`.
 Those logs and HTML exports are ignored by Git; the executed notebooks are
-tracked. An initial GitHub Actions workflow is included, but no remote CI run
-has been performed for this local development version.
+tracked. GitHub Actions runs the same commands and uploads validation
+artifacts with a retention period of 14 days.
 
 ## Properties covered
 

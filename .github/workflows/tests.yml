@@ -16,7 +16,7 @@ jobs:
       image: sagemath/sagemath:10.8
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install package
         run: sage -pip install --no-deps --no-build-isolation .
       - name: Regression tests and doctests
@@ -27,7 +27,7 @@ jobs:
         run: sage -python tools/build_examples.py
       - name: Save validation results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: tdatum-validation
           path: |
