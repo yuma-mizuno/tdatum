@@ -47,6 +47,33 @@ a subset; the resulting mutation loop is checked by its constructor.
 The stored matrices are immutable. Use `matrix(td.pair()[0])` to obtain a
 mutable copy.
 
+### Plot a quiver
+
+```python
+from tdatum.examples import RSG
+
+td = RSG([3, 1]).t_datum()
+td.plot_mutation_loop().show(figsize=6, axes_pad=0.15)
+```
+
+The plot labels vertices by the zero-based pairs `(a, p)` in
+`maximal_initial_indices()` and highlights the first mutation block (`p = 0`)
+in green. To plot the exchange matrix at time `u` with SageMath's standard
+quiver layout, use:
+
+```python
+from sage.all import ClusterQuiver
+
+loop = td.mutation_loop()
+u = 1
+ClusterQuiver(loop.b_matrix(u)).plot().show(figsize=6, axes_pad=0.15)
+```
+
+Here the vertex labels are the integer indices of the exchange matrix.
+See the [RSG notebook](../examples/02_rsg.ipynb) for the pair-labeled plot
+and the [mutation-loop notebook](../examples/03_mutation_loops.ipynb) for
+plots at successive time steps with one-based display labels.
+
 ## MutationLoop
 
 ```python

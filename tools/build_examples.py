@@ -92,6 +92,15 @@ for parameters in cases:
     assert ap * am.transpose().subs({z: 1/z}) == am * ap.transpose().subs({z: 1/z})
     records.append((parameters, datum.size(), datum.degrees()))
 records'''),
+        md(r"""## Plot the initial quiver
+
+`plot_mutation_loop()` draws the initial quiver of the maximal mutation-loop
+construction. Its vertex labels are the zero-based pairs $(a,p)$ returned
+by `maximal_initial_indices()`: $a$ is the matrix row and $0 \le p < p_a$.
+Green vertices have $p=0$ and are mutated in the first time step.
+"""),
+        code('''plot = td.plot_mutation_loop()
+plot.show(figsize=6, axes_pad=0.15)'''),
         md("A mutation loop can also be constructed from a T-datum. The following test recovers the original matrix pair from the maximal construction."),
         code('''loop = td.mutation_loop()
 assert loop.is_complete()
@@ -124,6 +133,33 @@ B'''),
 assert loop.length() == 2
 assert loop.whole_length() == 3
 {"displayed_steps": displayed_steps, "time_steps": loop.length(), "mutations": loop.whole_length(), "endpoint_permutation": nu}'''),
+        md(r"""## Plot the quivers along the loop
+
+SageMath's `ClusterQuiver` constructs each quiver from `loop.b_matrix(t)`.
+Plot its directed graph with fixed vertex positions to compare the arrows.
+Relabeling this graph changes the displayed vertices to
+$1,2,3$, matching `displayed_steps`; the loop's API still uses $0,1,2$.
+The panels show $t=0,1,2$. Green vertices indicate the next mutation block:
+$\{1,3\}$ in the first panel and $\{2\}$ in the second. The final panel
+has the same exchange matrix as the first because the endpoint permutation
+is the identity in this example.
+"""),
+        code('''from sage.all import ClusterQuiver, graphics_array, text
+
+panels = []
+positions = {1: (-1, 0), 2: (0, 1), 3: (1, 0)}
+for time in range(loop.length() + 1):
+    quiver = ClusterQuiver(loop.b_matrix(time))
+    graph = quiver.digraph()
+    graph.relabel({vertex: vertex + 1 for vertex in range(loop.size())})
+    next_vertices = displayed_steps[time] if time < loop.length() else []
+    colors = {"lightgreen": next_vertices,
+              "tomato": [v for v in positions if v not in next_vertices]}
+    panel = graph.plot(pos=positions, vertex_colors=colors, vertex_size=500,
+                       vertex_labels=True, edge_labels=False, graph_border=True)
+    panel += text("t = " + str(time), (0, 1.3), color="black", fontsize=14)
+    panels.append(panel)
+graphics_array(panels, ncols=3).show(figsize=(12, 4), axes=False)'''),
         md("The rows of the resulting T-datum are ordered by mutation points within one loop: first by time step, then by the order in that block."),
         code('''mutation_points = [(vertex, time) for time, block in enumerate(displayed_steps) for vertex in block]
 td = loop.t_datum()

@@ -61,6 +61,17 @@ td = RSG([3, 1]).t_datum()
 assert td.degrees() == (2, 6)
 ```
 
+Plot its initial quiver:
+
+```python
+td.plot_mutation_loop().show(figsize=6, axes_pad=0.15)
+```
+
+Vertices are labeled by the zero-based pairs `(a, p)` in
+`td.maximal_initial_indices()`. Green vertices have `p = 0` and form the
+first mutation block. The [mutation-loop notebook](examples/03_mutation_loops.ipynb)
+also plots the quivers before and after each time step.
+
 `RSG(...).pair()` returns the constructed matrices. `RSG(...).t_datum()`
 also validates them. The same interface is available on the other example
 constructors; pass `D` explicitly when a nonidentity symmetrizer is needed.
@@ -70,9 +81,9 @@ constructors; pass `D` explicitly when a nonidentity symmetrizer is needed.
 - [Getting started](examples/01_getting_started.ipynb): construction,
   nonidentity symmetrizers, and duals.
 - [RSG examples](examples/02_rsg.ipynb): six explicit parameter lists,
-  their matrices and degrees.
-- [Mutation loops](examples/03_mutation_loops.ipynb): time steps, vertex
-  labels, endpoint permutations, and reconstruction of a T-datum.
+  their matrices, degrees, and an initial quiver plot.
+- [Mutation loops](examples/03_mutation_loops.ipynb): quivers along a loop,
+  time steps, vertex labels, endpoint permutations, and reconstruction of a T-datum.
 - [API and mathematical conventions](docs/api.md).
 - [Verification record](docs/verification.md).
 

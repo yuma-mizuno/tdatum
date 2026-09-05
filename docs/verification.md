@@ -10,8 +10,8 @@ environment in WSL.
 | Wheel build | `sagemath_tdatum-0.1.0.dev0-py3-none-any.whl` built |
 | Isolated installation | Wheel imported from a temporary installation; all 12 regression tests passed there |
 | Getting-started notebook | 5 code cells executed, 0 errors |
-| RSG notebook | 4 code cells executed, 0 errors |
-| Mutation-loop notebook | 5 code cells executed, 0 errors |
+| RSG notebook | 5 code cells executed, 0 errors; initial quiver plot embedded |
+| Mutation-loop notebook | 6 code cells executed, 0 errors; quivers at three time steps embedded |
 | Citation metadata | Validated against the official CFF 1.2.0 JSON schema |
 
 ## GitHub Actions
